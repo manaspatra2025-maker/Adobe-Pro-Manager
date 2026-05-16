@@ -151,12 +151,18 @@
 
         /* --- Table --- */
         .table-wrapper { border-radius: 16px; overflow-x: auto; border: 1px solid var(--border); background: rgba(2, 4, 10, 0.6); }
-        table { width: 100%; border-collapse: collapse; min-width: 850px; }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; }
         th { text-align: left; padding: 18px 20px; background: rgba(6, 182, 212, 0.05); color: var(--primary); font-size: 11px; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid var(--border); }
-        td { padding: 18px 20px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-main); }
+        td { padding: 18px 20px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-main); transition: background 0.3s ease; }
         tr:hover td { background: rgba(6, 182, 212, 0.03); }
         
         tr.urgent-row td { background: rgba(255, 42, 109, 0.05); border-bottom: 1px solid rgba(255, 42, 109, 0.15); }
+        
+        /* --- GREEN MARKED ROW EFFECT --- */
+        tr.green-marked td { 
+            background: rgba(34, 197, 94, 0.12) !important; 
+            border-bottom: 1px solid rgba(34, 197, 94, 0.3) !important; 
+        }
 
         /* Badges */
         .badge { padding: 6px 12px; border-radius: 50px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
@@ -164,9 +170,46 @@
         .badge-danger { background: rgba(255, 42, 109, 0.1); color: var(--danger); border: 1px solid rgba(255, 42, 109, 0.2); animation: pulse-red 1.5s infinite; }
         @keyframes pulse-red { 0%,100% { box-shadow: 0 0 0 0 rgba(255, 42, 109, 0.4); } 50% { box-shadow: 0 0 0 5px rgba(255, 42, 109, 0); } }
 
-        /* Action Icons */
+        /* Action Icons & Custom Checkbox */
         .action-icon { width: 34px; height: 34px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); color: var(--text-muted); margin-right: 5px; cursor: pointer; transition: 0.3s; }
         .action-icon:hover { background: var(--primary); color: #000; }
+        
+        /* --- FIXED: BOX SOMAN KORAR JONNO STYLE --- */
+        .mark-checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 34px; height: 34px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            cursor: pointer;
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.3s;
+            margin-right: 5px;
+            padding: 0;
+            margin-top: 0;
+            margin-bottom: 0;
+            vertical-align: middle;
+        }
+        .mark-checkbox:hover {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: #22c55e;
+        }
+        .mark-checkbox:checked {
+            background: #22c55e;
+            border-color: #22c55e;
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+        }
+        .mark-checkbox:checked::after {
+            content: "\f00c";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            color: #02040a;
+            font-size: 14px;
+        }
 
         /* --- TOGGLE SWITCH --- */
         .status-toggle {
@@ -389,6 +432,7 @@
             dealer: document.getElementById('dName').value,
             buy: parseFloat(document.getElementById('buyPrice').value) || 0,
             sell: parseFloat(document.getElementById('sellPrice').value) || 0,
+            marked: false, 
             active: true 
         };
         
@@ -413,6 +457,12 @@
     window.toggleStatus = function(id, currentStatus) {
         update(ref(db, 'subscriptions/' + id), {
             active: !currentStatus
+        });
+    };
+
+    window.toggleMarked = function(id, currentMarkedState) {
+        update(ref(db, 'subscriptions/' + id), {
+            marked: !currentMarkedState
         });
     };
 
@@ -479,7 +529,6 @@
                 return daysA - daysB;
             });
 
-            // Serial Number Counter Initialize
             let slNo = 1;
 
             rows.forEach(item => {
@@ -496,13 +545,12 @@
                 
                 let badge = "";
                 let rowClass = "";
-                let dueAmount = 0; // Baki Taka Math
+                let dueAmount = 0;
                 
                 if(diffDays > 0) {
                     const m = Math.floor(diffDays/30);
                     const d = diffDays % 30;
                     
-                    // বাকি মাসের উপর ভিত্তি করে ৩৩৩.২৫ হারে বাকি টাকার হিসাব
                     const remainingMonths = Math.max(0, Math.ceil(diffDays / 30));
                     dueAmount = (remainingMonths * 333.25).toFixed(2);
 
@@ -514,10 +562,15 @@
                     }
                 } else {
                     badge = `<span class="badge" style="border:1px solid #555; color:#777;"><i class="fa-solid fa-ban"></i> EXPIRED</span>`;
-                    dueAmount = (0).toFixed(2); // Expire হয়ে গেলে কোনো বাকি টাকা থাকবে না
+                    dueAmount = (0).toFixed(2);
                 }
 
                 const isActive = item.active !== false; 
+                const isMarked = item.marked === true; 
+                
+                if (isMarked) {
+                    rowClass = "green-marked";
+                }
 
                 tbody.innerHTML += `<tr class="${rowClass}">
                     <td style="font-weight: 600; color: var(--text-muted);">${slNo++}</td>
@@ -541,7 +594,8 @@
                         </label>
                     </td>
                     <td>
-                        <div style="display:flex;">
+                        <div style="display:flex; align-items: center; justify-content: flex-start; gap: 2px;">
+                            <input type="checkbox" class="mark-checkbox" ${isMarked ? 'checked' : ''} onchange="toggleMarked('${item.id}', ${isMarked})">
                             <a href="https://wa.me/91${item.wa}" target="_blank" class="action-icon"><i class="fab fa-whatsapp"></i></a>
                             <a onclick="editEntry('${item.id}', '${encodeURIComponent(JSON.stringify(item))}')" class="action-icon"><i class="fa-solid fa-pen"></i></a>
                             <a onclick="deleteEntry('${item.id}')" class="action-icon" style="color:#ff2a6d"><i class="fa-solid fa-trash"></i></a>
