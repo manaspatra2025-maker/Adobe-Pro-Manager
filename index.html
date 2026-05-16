@@ -151,9 +151,9 @@
 
         /* --- Table --- */
         .table-wrapper { border-radius: 16px; overflow-x: auto; border: 1px solid var(--border); background: rgba(2, 4, 10, 0.6); }
-        table { width: 100%; border-collapse: collapse; min-width: 800px; }
-        th { text-align: left; padding: 18px 25px; background: rgba(6, 182, 212, 0.05); color: var(--primary); font-size: 11px; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid var(--border); }
-        td { padding: 18px 25px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-main); }
+        table { width: 100%; border-collapse: collapse; min-width: 850px; }
+        th { text-align: left; padding: 18px 20px; background: rgba(6, 182, 212, 0.05); color: var(--primary); font-size: 11px; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+        td { padding: 18px 20px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-main); }
         tr:hover td { background: rgba(6, 182, 212, 0.03); }
         
         tr.urgent-row td { background: rgba(255, 42, 109, 0.05); border-bottom: 1px solid rgba(255, 42, 109, 0.15); }
@@ -168,7 +168,7 @@
         .action-icon { width: 34px; height: 34px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); color: var(--text-muted); margin-right: 5px; cursor: pointer; transition: 0.3s; }
         .action-icon:hover { background: var(--primary); color: #000; }
 
-        /* --- TOGGLE SWITCH (UPDATED) --- */
+        /* --- TOGGLE SWITCH --- */
         .status-toggle {
             position: relative; display: inline-block; width: 44px; height: 24px;
         }
@@ -291,10 +291,12 @@
                     <table id="dataTable">
                         <thead>
                             <tr>
+                                <th style="width: 50px;">SL</th>
                                 <th>Client Info</th>
                                 <th>Contact</th>
                                 <th>Node</th>
                                 <th>Financials</th>
+                                <th>Due (Baki)</th>
                                 <th>Profit</th>
                                 <th>Caching Status</th>
                                 <th>Status</th>
@@ -345,7 +347,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, push, onValue, remove, update, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCzPmDvx3qsUyA2QI14u4Q5KMqH-VT7agE",
@@ -387,7 +389,7 @@
             dealer: document.getElementById('dName').value,
             buy: parseFloat(document.getElementById('buyPrice').value) || 0,
             sell: parseFloat(document.getElementById('sellPrice').value) || 0,
-            active: true // Default Active
+            active: true 
         };
         
         if(!entry.name || !entry.date) return alert("Missing required fields!");
@@ -408,7 +410,6 @@
         resetForm();
     };
 
-    // --- TOGGLE FUNCTION ---
     window.toggleStatus = function(id, currentStatus) {
         update(ref(db, 'subscriptions/' + id), {
             active: !currentStatus
@@ -478,6 +479,9 @@
                 return daysA - daysB;
             });
 
+            // Serial Number Counter Initialize
+            let slNo = 1;
+
             rows.forEach(item => {
                 const profit = item.sell - item.buy;
                 totals.s += item.sell; totals.b += item.buy;
@@ -492,10 +496,16 @@
                 
                 let badge = "";
                 let rowClass = "";
+                let dueAmount = 0; // Baki Taka Math
                 
                 if(diffDays > 0) {
                     const m = Math.floor(diffDays/30);
                     const d = diffDays % 30;
+                    
+                    // বাকি মাসের উপর ভিত্তি করে ৩৩৩.২৫ হারে বাকি টাকার হিসাব
+                    const remainingMonths = Math.max(0, Math.ceil(diffDays / 30));
+                    dueAmount = (remainingMonths * 333.25).toFixed(2);
+
                     if(diffDays < 30) {
                          badge = `<span class="badge badge-danger"><i class="fa-solid fa-triangle-exclamation"></i> ${d} DAYS LEFT</span>`;
                          rowClass = "urgent-row";
@@ -504,12 +514,13 @@
                     }
                 } else {
                     badge = `<span class="badge" style="border:1px solid #555; color:#777;"><i class="fa-solid fa-ban"></i> EXPIRED</span>`;
+                    dueAmount = (0).toFixed(2); // Expire হয়ে গেলে কোনো বাকি টাকা থাকবে না
                 }
 
-                // Status Check (Default to true if undefined)
                 const isActive = item.active !== false; 
 
                 tbody.innerHTML += `<tr class="${rowClass}">
+                    <td style="font-weight: 600; color: var(--text-muted);">${slNo++}</td>
                     <td>
                         <div style="font-weight:700; color:#fff;">${item.name}</div>
                         <div style="font-size:12px; color:var(--text-muted)">${item.email}</div>
@@ -520,6 +531,7 @@
                         <div style="font-size:12px; color:var(--text-muted)">Buy: ₹${item.buy}</div>
                         <div style="font-size:13px; font-weight:600;">Sell: ₹${item.sell}</div>
                     </td>
+                    <td style="color: var(--warning); font-family: 'Space Grotesk'; font-weight: 600;">₹${dueAmount}</td>
                     <td style="color:var(--success); font-weight:700; text-shadow:0 0 10px rgba(0,210,255,0.3);">₹${profit}</td>
                     <td>${badge}</td>
                     <td>
@@ -603,4 +615,3 @@
 </script>
 </body>
 </html>
-
