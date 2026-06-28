@@ -191,6 +191,41 @@
         tr.promocode-row:hover td{background:#5a0000 !important;}
         tr.green-marked.promocode-row td{background:#4a0000 !important;}
 
+
+        /* --- TOP VENDOR DROPDOWN --- */
+        .top-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .top-vendor-select {
+            width: 180px;
+            margin: 0;
+            padding: 9px 34px 9px 14px;
+            border-radius: 50px;
+            background: rgba(6, 182, 212, 0.08);
+            border: 1px solid rgba(6, 182, 212, 0.32);
+            color: #e0f2fe;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.10);
+        }
+        .top-vendor-select:hover,
+        .top-vendor-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.18);
+        }
+        .top-vendor-select option {
+            background: #02040a;
+            color: #ffffff;
+        }
+        @media (max-width: 768px) {
+            .top-controls { width: 100%; justify-content: space-between; }
+            .top-vendor-select { width: 100%; }
+        }
+
         /* Badges */
         .badge { padding: 6px 12px; border-radius: 50px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
         .badge-safe { background: rgba(0, 210, 255, 0.1); color: var(--success); border: 1px solid rgba(0, 210, 255, 0.2); }
@@ -317,9 +352,17 @@
         <div class="header-title">
             <h2 id="pageTitle">Dashboard</h2>
         </div>
-        <div class="status-pill">
-            <div class="dot"></div>
-            <span>Live Caching: Online</span>
+        <div class="top-controls">
+            <div class="status-pill">
+                <div class="dot"></div>
+                <span>Live Caching: Online</span>
+            </div>
+            <select id="topVendorSelect" class="top-vendor-select" onchange="setVendorFilter(this.value)" title="Filter by Vendor">
+                <option value="All Vendors">All Vendors</option>
+                <option value="Raju Roy">Raju Roy</option>
+                <option value="Adobe Seller">Adobe Seller</option>
+                <option value="Edit Point">Edit Point</option>
+            </select>
         </div>
     </div>
 
@@ -453,6 +496,19 @@
     const db = getDatabase(app);
     const dataRef = ref(db, 'subscriptions');
 
+    const vendorSelect = document.getElementById('topVendorSelect');
+    const savedVendorFilter = localStorage.getItem('selectedVendorFilter') || 'All Vendors';
+    let latestSubscriptionData = null;
+
+    if (vendorSelect) vendorSelect.value = savedVendorFilter;
+
+    window.setVendorFilter = function(vendor) {
+        if (!vendor) return;
+        localStorage.setItem('selectedVendorFilter', vendor);
+        if (vendorSelect) vendorSelect.value = vendor;
+        updateUI(latestSubscriptionData);
+    };
+
     window.switchTab = function(tabName, element) {
         let titleMap = {
             'dashboard': 'Dashboard',
@@ -487,15 +543,16 @@
         if(!entry.name || !entry.date) return alert("Missing required fields!");
         
         if(id) {
-            update(ref(db, 'subscriptions/' + id), {
+            const updateData={
                 name: entry.name,
                 email: entry.email,
                 wa: entry.wa,
                 date: entry.date,
-                dealer: entry.dealer,
                 buy: entry.buy,
                 sell: entry.sell
-            });
+            };
+            if(entry.dealer) updateData.dealer=entry.dealer;
+            update(ref(db, 'subscriptions/' + id), updateData);
         } else {
             push(dataRef, entry);
         }
@@ -513,6 +570,8 @@
             promoCode: !currentPromoCodeState
         });
     };
+
+
 
     window.toggleMarked = function(id, currentMarkedState) {
         update(ref(db, 'subscriptions/' + id), {
@@ -558,7 +617,8 @@
     };
 
     onValue(dataRef, (snapshot) => {
-        updateUI(snapshot.val());
+        latestSubscriptionData = snapshot.val();
+        updateUI(latestSubscriptionData);
     });
 
     function updateUI(data) {
@@ -568,7 +628,10 @@
         let monthlyProfit = new Array(12).fill(0);
 
         if(data) {
-            const rows = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+            const selectedVendorFilter = localStorage.getItem('selectedVendorFilter') || 'All Vendors';
+            const rows = Object.keys(data)
+                .map(key => ({ id: key, ...data[key] }))
+                .filter(item => selectedVendorFilter === 'All Vendors' || item.dealer === selectedVendorFilter);
             rows.sort((a, b) => {
                 const getDays = (date) => {
                     const expiry = new Date(date); expiry.setDate(expiry.getDate() + 364);
@@ -635,7 +698,7 @@
                     </td>
                     <td style="font-family:'Space Grotesk'; color:var(--primary);">${item.wa}</td>
                     
-                    <td><span style="background:rgba(255,255,255,0.05); padding:5px 10px; border-radius:6px; font-size:11px; white-space: nowrap; width: max-content; display: block;">${item.dealer}</span></td>
+                    <td><span style="background:rgba(255,255,255,0.05); padding:5px 10px; border-radius:6px; font-size:11px; white-space: nowrap; width: max-content; display: block;">${item.dealer || ''}</span></td>
                     
                     <td>
                         <div style="font-size:12px; color:var(--text-muted)">Buy: ₹${item.buy}</div>
