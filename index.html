@@ -150,10 +150,10 @@
         .btn-danger { background: linear-gradient(135deg, #ff2a6d, #d946ef); box-shadow: 0 0 15px rgba(255, 42, 109, 0.3); }
 
         /* --- Table --- */
-        .table-wrapper { border-radius: 16px; overflow-x: auto; border: 1px solid var(--border); background: rgba(2, 4, 10, 0.6); }
+        .table-wrapper { border-radius: 16px; overflow-x: auto; border: 1px solid var(--border); background: rgba(2, 4, 10, 0.6); transition: all 0.35s ease; }
         table { width: 100%; border-collapse: collapse; min-width: 900px; }
-        th { text-align: left; padding: 18px 20px; background: rgba(6, 182, 212, 0.05); color: var(--primary); font-size: 11px; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid var(--border); }
-        td { padding: 18px 20px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-main); transition: background 0.3s ease; }
+        th { text-align: left; padding: 18px 20px; background: rgba(6, 182, 212, 0.05); color: var(--primary); font-size: 11px; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid var(--border); transition: all 0.35s ease; }
+        td { padding: 18px 20px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-main); transition: background 0.3s ease, border-color 0.3s ease; }
         tr:hover td { background: rgba(6, 182, 212, 0.03); }
         
         tr.urgent-row td { background: rgba(255, 42, 109, 0.05); border-bottom: 1px solid rgba(255, 42, 109, 0.15); }
@@ -163,6 +163,33 @@
             background: rgba(34, 197, 94, 0.12) !important; 
             border-bottom: 1px solid rgba(34, 197, 94, 0.3) !important; 
         }
+
+        /* --- PROMO CODE ROW RED EFFECT --- */
+        tr.promocode-row td{
+            background:#4a0000 !important;
+            color:#fff !important;
+            border-top:1px solid #ff4d4d !important;
+            border-bottom:1px solid #ff4d4d !important;
+            box-shadow:inset 0 0 20px rgba(0,0,0,.25);
+        }
+        tr.promocode-row td *,
+        tr.promocode-row td a,
+        tr.promocode-row td span,
+        tr.promocode-row td div,
+        tr.promocode-row td i{
+            color:#fff !important;
+        }
+        tr.promocode-row .action-icon{
+            background:rgba(255,255,255,.18)!important;
+            border:1px solid rgba(255,255,255,.25);
+        }
+        tr.promocode-row .badge{
+            background:rgba(255,255,255,.15)!important;
+            color:#fff!important;
+            border:1px solid rgba(255,255,255,.35)!important;
+        }
+        tr.promocode-row:hover td{background:#5a0000 !important;}
+        tr.green-marked.promocode-row td{background:#4a0000 !important;}
 
         /* Badges */
         .badge { padding: 6px 12px; border-radius: 50px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
@@ -235,6 +262,25 @@
             box-shadow: 0 0 10px rgba(22, 163, 74, 0.4); 
         }
         input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+        .promo-toggle .toggle-slider {
+            background-color: #3f1d7a;
+            border-color: #6d28d9;
+        }
+        .promo-toggle input:checked + .toggle-slider {
+            background-color:#4a0000;
+            border-color:#7a0000;
+            box-shadow:0 0 10px rgba(74,0,0,.6);
+        }
+        tr.promocode-row .status-toggle .toggle-slider{
+            background-color:#3a0000 !important;
+            border-color:#7a0000 !important;
+        }
+        tr.promocode-row .status-toggle input:checked + .toggle-slider{
+            background-color:#4a0000 !important;
+            border-color:#a00000 !important;
+            box-shadow:0 0 10px rgba(74,0,0,.7)!important;
+        }
 
         /* View Animation */
         .view-section { display: none; animation: fadeIn 0.4s ease; }
@@ -330,7 +376,7 @@
                     </div>
                 </div>
                 
-                <div class="table-wrapper">
+                <div class="table-wrapper" id="promoTableWrapper">
                     <table id="dataTable">
                         <thead>
                             <tr>
@@ -343,6 +389,7 @@
                                 <th>Profit</th>
                                 <th>Caching Status</th>
                                 <th>Status</th>
+                                <th>Promo Code</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -433,7 +480,8 @@
             buy: parseFloat(document.getElementById('buyPrice').value) || 0,
             sell: parseFloat(document.getElementById('sellPrice').value) || 0,
             marked: false, 
-            active: true 
+            active: true,
+            promoCode: false 
         };
         
         if(!entry.name || !entry.date) return alert("Missing required fields!");
@@ -457,6 +505,12 @@
     window.toggleStatus = function(id, currentStatus) {
         update(ref(db, 'subscriptions/' + id), {
             active: !currentStatus
+        });
+    };
+
+    window.togglePromoCode = function(id, currentPromoCodeState) {
+        update(ref(db, 'subscriptions/' + id), {
+            promoCode: !currentPromoCodeState
         });
     };
 
@@ -567,10 +621,11 @@
 
                 const isActive = item.active !== false; 
                 const isMarked = item.marked === true; 
+                const isPromoCode = item.promoCode === true; 
                 
-                if (isMarked) {
-                    rowClass = "green-marked";
-                }
+                if (isMarked) rowClass += " green-marked";
+                if (isPromoCode) rowClass += " promocode-row";
+                rowClass = rowClass.trim();
 
                 tbody.innerHTML += `<tr class="${rowClass}">
                     <td style="font-weight: 600; color: var(--text-muted);">${slNo++}</td>
@@ -592,6 +647,12 @@
                     <td>
                         <label class="status-toggle">
                             <input type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleStatus('${item.id}', ${isActive})">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </td>
+                    <td>
+                        <label class="status-toggle promo-toggle" title="Promo Code">
+                            <input type="checkbox" ${isPromoCode ? 'checked' : ''} onchange="togglePromoCode('${item.id}', ${isPromoCode})">
                             <span class="toggle-slider"></span>
                         </label>
                     </td>
